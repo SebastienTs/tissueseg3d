@@ -49,7 +49,7 @@ def tissueseg3d(vw: Viewer, imagefile=imagefile_default, nuc_prescale=0.5, nuc_s
     # Multiscale DoG
     print('Performing nuclei detection...')
     blobs = dog(zoom(nuclei, (1, nuc_prescale, nuc_prescale), order=1), min_sigma=nuc_scale_min,
-                max_sigma=nuc_scale_max, sigma_ratio=1.6, threshold=nuc_det*1e-3, exclude_border=False)
+                max_sigma=nuc_scale_max, sigma_ratio=1.6, threshold=nuc_det*1e-3, exclude_border=True)
     coords = [(int(blob[0]), int(blob[1]/nuc_prescale), int(blob[2]/nuc_prescale)) for blob in blobs]
     # Remove spurious seeds
     #nuclei_msk = (nuclei>=nuc_thr).astype(int)
@@ -59,14 +59,19 @@ def tissueseg3d(vw: Viewer, imagefile=imagefile_default, nuc_prescale=0.5, nuc_s
     # Watershed
     print('Performing cells segmentation...')
     seeds = np.zeros(nuclei.shape, dtype=np.uint16)
+    seeds[:, 0, :] = 1
+    seeds[:, :, 0] = 1
+    seeds[:, -1, :] = 1
+    seeds[:, :, -1] = 1
     for i, sd in enumerate(coords_kept):
-        seeds[sd] = i+1
+        seeds[sd] = i+2
     membrane_flt = imposemin(membrane_flt, seeds>0)
     cell_lbl = watershed(membrane_flt, seeds, compactness=0)
     # Remove small and large regions
     print('Postprocessing...')
-    cell_lbl = remove_components(cell_lbl, cell_minvol, cell_maxvol)
-    # Regularize, fill holes (and optionally shrink) label mask
+    cell_lbl = remove_components_size(cell_lbl, cell_minvol, cell_maxvol)
+    cell_lbl = remove_components_edge(cell_lbl)
+    # Regularize, fill holes and optionally shrink label mask
     cell_lbl = median_filter(cell_lbl, size=(np.ceil(cell_regrad/zratio).astype(int),cell_regrad,cell_regrad))
     cell_lbl = fill_lbl_holes(cell_lbl)
     # Split cell regions

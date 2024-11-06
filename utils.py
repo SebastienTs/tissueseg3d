@@ -36,19 +36,27 @@ def remove_seeds(img, seeds, dstthr, deltamax, zratio):
 
     return [seeds[i] for i in idx]
 
-# Remove small and large connected components in label mask
-def remove_components(label_mask, minvol, maxvol):
-    labels, counts = np.unique(label_mask, return_counts=True)
-    mask = (counts >= minvol) & (counts <= maxvol)
-    mapping = np.zeros(labels.max() + 1, dtype=label_mask.dtype)
-    mapping[labels[mask]] = labels[mask]
-    return mapping[label_mask]
-
 def imposemin(img, minima):
     marker = np.full(img.shape, np.inf)
     marker[minima == 1] = 0
     mask = np.minimum((img + 1), marker)
     return reconstruction(marker, mask, method='erosion')
+
+def remove_components_size(lbl, minvol, maxvol):
+    labels, counts = np.unique(lbl, return_counts=True)
+    mask = (counts >= minvol) & (counts <= maxvol)
+    mapping = np.zeros(labels.max() + 1, dtype=lbl.dtype)
+    mapping[labels[mask]] = labels[mask]
+    return mapping[lbl]
+
+def remove_components_edge(lbl):
+    regions = regionprops(lbl)
+    for region in regions:
+        bbox = region.bbox
+        if bbox[1] <= 1 or bbox[4] >= (lbl.shape[1] - 2) or bbox[2] <= 1 or bbox[5] >= (lbl.shape[2] - 2):
+            x, y, z = zip(*region.coords)
+            lbl[x, y, z] = 0
+    return lbl
 
 def fill_lbl_holes(lbl):
     lbl_holes = label(binary_fill_holes(lbl>0) ^ (lbl>0))
