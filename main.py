@@ -92,5 +92,6 @@ def tissueseg3d(vw: Viewer, imagefile=imagefile_default, nuc_prescale=0.5, nuc_s
     viewer.add_points(coords_kept, name=f"Seeds_Kept", size=15, face_color='green', blending="additive", scale=(zratio, 1, 1), visible=False)
 
 viewer = napari.Viewer()
-viewer.window.add_dock_widget(tissueseg3d, area='right', name='Process')
+dw = viewer.window.add_dock_widget(tissueseg3d, area='right', name='Process')
+dw.setMinimumWidth(360)
 napari.run()
