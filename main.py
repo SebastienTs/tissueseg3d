@@ -4,7 +4,7 @@ import napari
 from os import chmod
 from napari import Viewer
 from magicgui import magicgui
-from tifffile import imread, imwrite
+from skimage.io import imread, imsave
 from skimage.filters import gaussian
 from skimage.feature import blob_dog as dog
 from skimage.segmentation import watershed
@@ -14,7 +14,7 @@ from utils import *
 import pandas as pd
 
 # Image file from Airy scan (0.25 XY downscaled)
-imagefile_default = 'D:/Projects/UPF/Berta_Lucas/CAAXinjH2B 12 hpf_025_crop.tif'
+imagefile_default = 'D:/Projects/UPF/Berta_Lucas/CAAXinjH2B 12 hpf_025.tif'
 
 @magicgui(call_button='Run',
           imagefile={'widget_type': 'FileEdit', 'label': 'Image Stack'},
@@ -31,7 +31,7 @@ imagefile_default = 'D:/Projects/UPF/Berta_Lucas/CAAXinjH2B 12 hpf_025_crop.tif'
           zratio={'widget_type': 'FloatSlider', 'min': 0, 'max': 9})
 def tissueseg3d(vw: Viewer, imagefile=imagefile_default, nuc_prescale=0.5, nuc_scale_min = 2, nuc_scale_max = 6,
                 nuc_det = 5e-2, memb_gaussrad=0.5, memb_maxdelta=25, cell_maxdst=50, cell_regrad=5, cell_minvol=5e2,
-                cell_maxvol=1e5, zratio = 3):
+                cell_maxvol=1e5, zratio = 6):
 
     # Close all layers
     vw.layers.clear()
@@ -79,7 +79,7 @@ def tissueseg3d(vw: Viewer, imagefile=imagefile_default, nuc_prescale=0.5, nuc_s
 
     #### Export results
     print('Exporting results...')
-    imwrite(str(imagefile).replace('.tif', '_lbl.tif'), cell_lbl)
+    imsave(str(imagefile).replace('.tif', '_lbl.tif'), cell_lbl)
     chmod(str(imagefile).replace('.tif', '_lbl.tif'), 0o666)
     properties = regionprops_table(cell_lbl, properties=['label', 'centroid', 'area', 'MajorAxisLength', 'MinorAxisLength'])
     df = pd.DataFrame(properties)
@@ -90,11 +90,11 @@ def tissueseg3d(vw: Viewer, imagefile=imagefile_default, nuc_prescale=0.5, nuc_s
     #### Display results
     print('Displaying results...')
     np.random.seed(0)
-    viewer.add_image(nuclei, name=f"Nuclei", scale=(zratio, 1, 1))
-    viewer.add_image(membrane, name=f"Membrane", scale=(zratio, 1, 1), blending='additive', colormap='green')
-    viewer.add_labels(cell_lbl, name=f"CellsLbl", blending="additive", scale=(zratio, 1, 1))
-    viewer.add_points(coords, name=f"Seeds", size=15, face_color='black', blending="additive", scale=(zratio, 1, 1), visible=False)
-    viewer.add_points(coords_kept, name=f"Seeds_Kept", size=15, face_color='green', blending="additive", scale=(zratio, 1, 1), visible=False)
+    vw.add_image(nuclei, name=f"Nuclei", scale=(zratio, 1, 1))
+    vw.add_image(membrane, name=f"Membrane", scale=(zratio, 1, 1), blending='additive', colormap='green')
+    vw.add_labels(cell_lbl, name=f"CellsLbl", blending="additive", scale=(zratio, 1, 1))
+    vw.add_points(coords, name=f"Seeds", size=15, face_color='black', blending="additive", scale=(zratio, 1, 1), visible=False)
+    vw.add_points(coords_kept, name=f"Seeds_Kept", size=15, face_color='green', blending="additive", scale=(zratio, 1, 1), visible=False)
 
 viewer = napari.Viewer()
 dw = viewer.window.add_dock_widget(tissueseg3d, area='right', name='Process')
