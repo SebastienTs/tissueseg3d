@@ -1,3 +1,4 @@
-napari[all]==0.4.19
+napari[all]==0.5.3
 pandas==2.2.2
-scikit-image==0.24.0
+scikit-image==0.20.0
+typing==3.7.4.3
