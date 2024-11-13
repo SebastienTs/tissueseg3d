@@ -14,13 +14,13 @@ from utils import *
 import pandas as pd
 
 # Image file from Airy scan (0.25 XY downscaled)
-imagefile_default = 'D:/Projects/UPF/Berta_Lucas/CAAXinjH2B 12 hpf_025.tif'
+imagefile_default = 'D:/Projects/UPF/Berta_Lucas/CAAXinjH2B 12 hpf_025_crop.tif'
 
 @magicgui(call_button='Run',
           imagefile={'widget_type': 'FileEdit', 'label': 'Image Stack'},
           nuc_prescale={'widget_type': 'FloatSlider', 'min': 0, 'max': 1},
-          nuc_scale_min={'widget_type': 'IntSlider', 'min': 1, 'max': 9},
-          nuc_scale_max={'widget_type': 'IntSlider', 'min': 1, 'max': 9},
+          nuc_scale_min={'widget_type': 'FloatSlider', 'min': 1, 'max': 5},
+          nuc_scale_max={'widget_type': 'FloatSlider', 'min': 1, 'max': 9},
           nuc_det={'widget_type': 'FloatSlider', 'min': 0, 'max': 1e-1},
           memb_gaussrad={'widget_type': 'FloatSlider', 'min': 0, 'max': 1.5},
           memb_maxdelta={'widget_type': 'IntSlider', 'min': 1, 'max': 100},
@@ -49,11 +49,11 @@ def tissueseg3d(vw: Viewer, imagefile=imagefile_default, nuc_prescale=0.5, nuc_s
     # Multiscale DoG
     print('Performing nuclei detection...')
     blobs = dog(zoom(nuclei, (1, nuc_prescale, nuc_prescale), order=1), min_sigma=nuc_scale_min,
-                max_sigma=nuc_scale_max, sigma_ratio=1.6, threshold=nuc_det*1e-3, exclude_border=True)
+                max_sigma=nuc_scale_max, sigma_ratio=1.6, threshold=nuc_det*1e-3, exclude_border=False)
     coords = [(int(blob[0]), int(blob[1]/nuc_prescale), int(blob[2]/nuc_prescale)) for blob in blobs]
     # Remove spurious seeds
     #nuclei_msk = (nuclei>=nuc_thr).astype(int)
-    coords_kept = remove_seeds(membrane_flt, coords, cell_maxdst, memb_maxdelta, zratio)
+    coords_kept = remove_seeds(membrane, coords, cell_maxdst, memb_maxdelta, zratio)
 
     #### Segment cells
     # Watershed
@@ -69,10 +69,10 @@ def tissueseg3d(vw: Viewer, imagefile=imagefile_default, nuc_prescale=0.5, nuc_s
     cell_lbl = watershed(membrane_flt, seeds, compactness=0)
     # Remove small and large regions
     print('Postprocessing...')
-    cell_lbl = remove_components_size(cell_lbl, cell_minvol, cell_maxvol)
-    cell_lbl = remove_components_edge(cell_lbl)
     # Regularize, fill holes and optionally shrink label mask
     cell_lbl = median_filter(cell_lbl, size=(np.ceil(cell_regrad/zratio).astype(int),cell_regrad,cell_regrad))
+    cell_lbl = remove_components_size(cell_lbl, cell_minvol, cell_maxvol)
+    cell_lbl = remove_components_edge(cell_lbl)
     cell_lbl = fill_lbl_holes(cell_lbl)
     # Split cell regions
     #cell_lbl = cell_lbl * (cell_lbl == minimum_filter(cell_lbl, size=(1,3,3)))
