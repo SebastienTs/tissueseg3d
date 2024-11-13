@@ -60,7 +60,7 @@ def remove_components_edge(lbl):
 
 def fill_lbl_holes(lbl):
     lbl_holes = label(binary_fill_holes(lbl>0) ^ (lbl>0))
-    regions = regionprops(lbl_holes, intensity_image=maximum_filter(lbl, size=(3,3,3)))
+    regions = regionprops(lbl_holes, intensity_image=maximum_filter(lbl, size=(1,3,3)))
     for region in regions:
         reglbl = region.intensity_max
         x, y, z = zip(*region.coords)
