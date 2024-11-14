@@ -6,8 +6,6 @@ from napari import Viewer
 from skimage.io import imread
 from magicgui import magicgui
 from napari.utils.colormaps import Colormap
-from qtpy.QtWidgets import QTableView
-from qtpy.QtCore import QAbstractTableModel, Qt
 
 # Image file from Airy scan (0.25 XY downscaled)
 imagefile_default = 'D:/Projects/UPF/Berta_Lucas/CAAXinjH2B 12 hpf_025_crop.tif'

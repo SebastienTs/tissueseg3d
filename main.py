@@ -5,7 +5,7 @@ import pandas as pd
 from os import chmod
 from napari import Viewer
 from magicgui import magicgui
-from skimage.io import imread, imsave
+from skimage.io import imsave
 from skimage.filters import gaussian
 from skimage.feature import blob_dog as dog
 from skimage.segmentation import watershed
@@ -66,8 +66,9 @@ def tissueseg3d(vw: Viewer, nuc_prescale=0.5, nuc_scale_min = 2, nuc_scale_max =
     cell_lbl = remove_components_edge(cell_lbl)
     cell_lbl = fill_lbl_holes(cell_lbl)
     cell_lbl = relabel_consecutive(cell_lbl)
-    cell_lbl = cell_lbl * (cell_lbl == minimum_filter(cell_lbl, size=(1,3,3)))
     properties = regionprops_table(cell_lbl, properties=['label', 'centroid', 'area', 'MajorAxisLength', 'MinorAxisLength'])
+    #cell_lbl = cell_lbl * (cell_lbl == minimum_filter(cell_lbl, size=(1,3,3)))
+
     # Compute object surfaces from label mask
     #combined_verts, combined_faces, combined_values, custom_colormap = lbl2mesh(cell_lbl)
 
