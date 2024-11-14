@@ -1,19 +1,21 @@
 import numpy as np
+from napari import Viewer
+from magicgui import magicgui
+from skimage.io import imread
 from skimage.morphology import reconstruction
 from skimage.measure import label, regionprops, marching_cubes
-from scipy.ndimage import binary_fill_holes, maximum_filter
-from napari import Viewer
-from skimage.io import imread
-from magicgui import magicgui
 from napari.utils.colormaps import Colormap
+from scipy.ndimage import binary_fill_holes, maximum_filter
 
 # Image file from Airy scan (0.25 XY downscaled)
 imagefile_default = 'D:/Projects/UPF/Berta_Lucas/CAAXinjH2B 12 hpf_025_crop.tif'
 
+# Compute distance between two 3D points
 def distance(pt1, pt2, zratio):
     dst = np.sqrt(((np.array(pt1)*np.array((zratio,1,1))-np.array(pt2)*np.array((zratio,1,1)))**2).sum())
     return dst
 
+# Compute coordinates along a segment between two 3D points
 def interpolate_3d_line(start, end):
     start = np.array(start)
     end = np.array(end)
@@ -23,6 +25,7 @@ def interpolate_3d_line(start, end):
     points = start[np.newaxis, :] + t[:, np.newaxis] * vector[np.newaxis, :]
     return np.round(points).astype(int)
 
+# Remove closeby seeds if the intensity along a segment between them does not reach a minimum level
 def remove_seeds(img, seeds, dstthr, deltamax, zratio):
     mergelst = [[] for _ in range(len(seeds))]
     for i, seed1 in enumerate(seeds):
@@ -41,12 +44,14 @@ def remove_seeds(img, seeds, dstthr, deltamax, zratio):
 
     return [seeds[i] for i in idx]
 
+# Impose regional intensity minima at given locations
 def imposemin(img, minima):
     marker = np.full(img.shape, np.inf)
     marker[minima == 1] = 0
     mask = np.minimum((img + 1), marker)
     return reconstruction(marker, mask, method='erosion')
 
+# Remove objects outside volume range
 def remove_components_size(lbl, minvol, maxvol):
     labels, counts = np.unique(lbl, return_counts=True)
     mask = (counts >= minvol) & (counts <= maxvol)
@@ -54,6 +59,7 @@ def remove_components_size(lbl, minvol, maxvol):
     mapping[labels[mask]] = labels[mask]
     return mapping[lbl]
 
+# Remove objects touching image borders
 def remove_components_edge(lbl):
     regions = regionprops(lbl)
     for region in regions:
@@ -63,6 +69,7 @@ def remove_components_edge(lbl):
             lbl[x, y, z] = 0
     return lbl
 
+# Fill holes in label mask
 def fill_lbl_holes(lbl):
     lbl_holes = label(binary_fill_holes(lbl>0) ^ (lbl>0))
     regions = regionprops(lbl_holes, intensity_image=maximum_filter(lbl, size=(1,3,3)))
@@ -72,26 +79,18 @@ def fill_lbl_holes(lbl):
         lbl[x, y, z] = reglbl
     return lbl
 
+# Relabel label mask with consecutive integers
 def relabel_consecutive(lbl):
-    # Get unique labels, excluding 0 if it's present
-    unique_labels = np.unique(lbl)
-    unique_labels = unique_labels[unique_labels != 0]
+    unique_labels, inverse = np.unique(lbl, return_inverse=True)
+    new_labels = np.arange(len(unique_labels))
+    new_labels[unique_labels == 0] = 0
+    return new_labels[inverse].reshape(lbl.shape)
 
-    # Create a mapping from old labels to new labels
-    label_map = {old: new for new, old in enumerate(unique_labels, start=1)}
-
-    # Create a vectorized function to apply the mapping
-    vectorized_map = np.vectorize(lambda x: label_map.get(x, 0))
-
-    # Apply the mapping to the entire mask
-    return vectorized_map(lbl)
-
-
+# Extract meshes from label mask
 def lbl2mesh(lbl):
     unique_labels = np.unique(lbl)
     unique_labels = unique_labels[unique_labels != 0]
     num_labels = len(unique_labels)
-
     all_verts = []
     all_faces = []
     all_values = []
