@@ -17,14 +17,14 @@ from utils import *
           nuc_prescale={'widget_type': 'FloatSlider', 'min': 0, 'max': 1},
           nuc_scale_min={'widget_type': 'FloatSlider', 'min': 1, 'max': 5},
           nuc_scale_max={'widget_type': 'FloatSlider', 'min': 1, 'max': 9},
-          nuc_det_thr={'widget_type': 'FloatSlider', 'min': 0, 'max': 1e-1},
+          nuc_det_thr={'widget_type': 'FloatSlider', 'min': 0, 'max': 10},
           nuc_maxdst={'widget_type': 'IntSlider', 'min': 1, 'max': 100},
           memb_maxdelta={'widget_type': 'IntSlider', 'min': 1, 'max': 100},
           memb_gaussrad={'widget_type': 'FloatSlider', 'min': 0, 'max': 1.5},
           cell_regrad={'widget_type': 'IntSlider', 'min': 1, 'max': 9},
           cell_minvol={'widget_type': 'IntSlider', 'min': 1, 'max': 5e3},
           cell_maxvol={'widget_type': 'IntSlider', 'min': 1, 'max': 2e5})
-def tissueseg3d(vw: Viewer, nuc_prescale=0.5, nuc_scale_min = 2, nuc_scale_max = 6, nuc_det_thr = 5e-2, 
+def tissueseg3d(vw: Viewer, nuc_prescale=0.5, nuc_scale_min = 2, nuc_scale_max = 6, nuc_det_thr = 1,
                 nuc_maxdst=50, memb_maxdelta=25, memb_gaussrad=0.5, cell_regrad=5, cell_minvol=2e3, cell_maxvol=1e5):
 
     # Retrieve data
@@ -42,9 +42,9 @@ def tissueseg3d(vw: Viewer, nuc_prescale=0.5, nuc_scale_min = 2, nuc_scale_max =
     blobs = dog(zoom(nuclei, (1, nuc_prescale, nuc_prescale), order=1), min_sigma=nuc_scale_min,
                 max_sigma=nuc_scale_max, sigma_ratio=1.6, threshold=nuc_det_thr*1e-3, exclude_border=False)
     coords = [(int(blob[0]), int(blob[1]/nuc_prescale), int(blob[2]/nuc_prescale)) for blob in blobs]
-    # Remove spurious seeds
-    #nuclei_msk = (nuclei>=nuc_thr).astype(int)
+    print(f"Found {len(coords)} candidate seeds")
     coords_kept = remove_seeds(membrane, coords, nuc_maxdst, memb_maxdelta, zratio)
+    print(f"Kept {len(coords_kept)} seeds")
 
     #### Segment cells
     # Watershed
