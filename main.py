@@ -84,7 +84,7 @@ def tissueseg3d(vw: Viewer, nuc_prescale=0.5, nuc_scale_min = 2, nuc_scale_max =
     #### Export results
     print('-------------------------------')
     print('Exporting results...')
-    imsave(str(imagefile).replace('.tif', '_lbl.tif'), cell_lbl, check_contrast=False)
+    imsave(str(imagefile).replace('.tif', '_lbl.tif'), np.uint16(cell_lbl), check_contrast=False)
     chmod(str(imagefile).replace('.tif', '_lbl.tif'), 0o666)
     print(str(imagefile).replace('.tif', '_lbl.tif'))
     df = pd.DataFrame(properties)
