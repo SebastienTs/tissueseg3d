@@ -86,6 +86,7 @@ def relabel_consecutive(lbl):
     new_labels[unique_labels == 0] = 0
     return new_labels[inverse].reshape(lbl.shape)
 
+
 # Extract meshes from label mask
 def lbl2mesh(lbl):
     unique_labels = np.unique(lbl)
@@ -123,5 +124,14 @@ def load_image_tiff(vw:Viewer, imagefile=imagefile_default, zratio=6):
     membrane = img[:, 1, :, :]
     vw.add_image(nuclei, name=f"Nuclei", scale=(zratio, 1, 1))
     vw.add_image(membrane, name=f"Membrane", scale=(zratio, 1, 1), blending='additive', colormap='green')
+
+    return None
+
+@magicgui(call_button='Clear', label={'widget_type': 'SpinBox', 'min': 1})
+def remove_label(vw: Viewer, label):
+
+    lbl = vw.layers['CellsLbl'].data
+    lbl[lbl==label] = 0
+    vw.layers['CellsLbl'].data = lbl
 
     return None

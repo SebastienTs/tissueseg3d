@@ -101,11 +101,14 @@ def tissueseg3d(vw: Viewer, nuc_prescale=0.5, nuc_scale_min = 2, nuc_scale_max =
     #viewer.add_surface((combined_verts, combined_faces, combined_values), name='Combined Surface', colormap=custom_colormap, scale=(zratio, 1, 1))
     vw.add_points(coords, name=f"Seeds", size=15, face_color='black', blending="additive", scale=(zratio, 1, 1), visible=False)
     vw.add_points(coords_kept, name=f"Seeds_Kept", size=15, face_color='green', blending="additive", scale=(zratio, 1, 1), visible=False)
+    vw.layers.selection.active = viewer.layers['CellsLbl']
 
 # Instantiate Napari viewer and add widgets
 viewer = napari.Viewer()
 dw1 = viewer.window.add_dock_widget(load_image_tiff, area='right', name='Load')
 dw1.setMinimumHeight(120);dw1.setMaximumHeight(120)
 dw1.setMinimumWidth(360)
-dw2 = viewer.window.add_dock_widget(tissueseg3d, area='right', name='Process')
+dw2 = viewer.window.add_dock_widget(tissueseg3d, area='right', name='Label')
+dw2.setMinimumHeight(400);dw2.setMaximumHeight(400)
+dw3 = viewer.window.add_dock_widget(remove_label, area='right', name='Curate')
 napari.run()
