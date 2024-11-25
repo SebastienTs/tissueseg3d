@@ -26,14 +26,15 @@ def interpolate_3d_line(start, end):
     return np.round(points).astype(int)
 
 # Remove closeby seeds if the intensity along a segment between them does not reach a minimum level
-def remove_seeds(img, seeds, dstthr, deltamax, zratio):
+def remove_seeds(img, seeds, dstthr, deltamax, mxthick, zratio):
     mergelst = [[] for _ in range(len(seeds))]
     for i, seed1 in enumerate(seeds):
         for j, seed2 in enumerate(seeds[i+1:], start=i+1):
                 if  distance(seed1, seed2, zratio) < dstthr:
                     profile = np.array([img[tuple(point)] for point in interpolate_3d_line(seed1, seed2)])
                     delta = profile.max() - profile.min()
-                    if delta < deltamax:
+                    thickness = sum((profile>=profile.max()*0.75).astype(int))
+                    if delta < deltamax and thickness <= mxthick:
                         mergelst[i].append(j)
 
     # Seeds to be kept (all but the ones that are part of a cluster)
@@ -86,6 +87,15 @@ def relabel_consecutive(lbl):
     new_labels[unique_labels == 0] = 0
     return new_labels[inverse].reshape(lbl.shape)
 
+# Check if viewer layer with specific name exists
+def viewer_is_layer(vw: Viewer, layername):
+
+    found = False
+    if len(vw.layers) > 0:
+        for i, ly in enumerate(vw.layers):
+            if str(ly) == layername: found = True
+
+    return found
 
 # Extract meshes from label mask
 def lbl2mesh(lbl):
@@ -127,11 +137,23 @@ def load_image_tiff(vw:Viewer, imagefile=imagefile_default, zratio=6):
 
     return None
 
-@magicgui(call_button='Clear', label={'widget_type': 'SpinBox', 'min': 1})
+@magicgui(call_button='Remove', label={'widget_type': 'SpinBox', 'min': 1})
 def remove_label(vw: Viewer, label):
 
-    lbl = vw.layers['CellsLbl'].data
-    lbl[lbl==label] = 0
-    vw.layers['CellsLbl'].data = lbl
+    if viewer_is_layer(vw, 'CellsLbl'):
+        lbl = vw.layers['CellsLbl'].data
+        lbl[lbl==label] = 0
+        vw.layers['CellsLbl'].data = lbl
+
+    return None
+
+
+@magicgui(call_button='Merge', label1={'widget_type': 'SpinBox', 'min': 1}, label2={'widget_type': 'SpinBox', 'min': 1})
+def merge_labels(vw: Viewer, label1, label2):
+
+    if viewer_is_layer(vw, 'CellsLbl'):
+        lbl = vw.layers['CellsLbl'].data
+        lbl[lbl==label2] = label1
+        vw.layers['CellsLbl'].data = lbl
 
     return None
