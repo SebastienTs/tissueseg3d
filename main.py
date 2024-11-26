@@ -57,7 +57,7 @@ def segment_cells(vw: Viewer, memb_gaussrad=0.5, cell_regrad=5, cell_minvol=2e3,
         imagefile = load_image_tiff.imagefile.value
         zratio = load_image_tiff.zratio.value
         membrane = vw.layers['Membrane'].data
-        coords_kept = [tuple(row) for row in vw.layers['Seeds_Kept'].data]
+        coords_kept = [tuple(row.astype(int)) for row in vw.layers['Seeds_Kept'].data]
         vw.layers['Seeds'].visible = False
         vw.layers['Seeds_Kept'].visible = False
 
