@@ -26,15 +26,14 @@ def interpolate_3d_line(start, end):
     return np.round(points).astype(int)
 
 # Remove closeby seeds if the intensity along a segment between them does not reach a minimum level
-def remove_seeds(img, seeds, dstthr, deltamax, mxthick, zratio):
+def remove_seeds(img, seeds, dstthr, deltamin, zratio):
     mergelst = [[] for _ in range(len(seeds))]
     for i, seed1 in enumerate(seeds):
         for j, seed2 in enumerate(seeds[i+1:], start=i+1):
                 if  distance(seed1, seed2, zratio) < dstthr:
                     profile = np.array([img[tuple(point)] for point in interpolate_3d_line(seed1, seed2)])
                     delta = profile.max() - profile.min()
-                    thickness = sum((profile>=profile.max()*0.75).astype(int))
-                    if delta < deltamax and thickness <= mxthick:
+                    if delta < deltamin:
                         mergelst[i].append(j)
 
     # Seeds to be kept (all but the ones that are part of a cluster)
@@ -53,7 +52,7 @@ def imposemin(img, minima):
     return reconstruction(marker, mask, method='erosion')
 
 # Remove objects outside volume range
-def remove_components_size(lbl, minvol, maxvol):
+def remove_lbl_size(lbl, minvol, maxvol):
     labels, counts = np.unique(lbl, return_counts=True)
     mask = (counts >= minvol) & (counts <= maxvol)
     mapping = np.zeros(labels.max() + 1, dtype=lbl.dtype)
@@ -61,7 +60,7 @@ def remove_components_size(lbl, minvol, maxvol):
     return mapping[lbl]
 
 # Remove objects touching image borders
-def remove_components_edge(lbl):
+def remove_lbl_edge(lbl):
     regions = regionprops(lbl)
     for region in regions:
         bbox = region.bbox
@@ -81,7 +80,7 @@ def fill_lbl_holes(lbl):
     return lbl
 
 # Relabel label mask with consecutive integers
-def relabel_consecutive(lbl):
+def relabel(lbl):
     unique_labels, inverse = np.unique(lbl, return_inverse=True)
     new_labels = np.arange(len(unique_labels))
     new_labels[unique_labels == 0] = 0
@@ -122,22 +121,28 @@ def lbl2mesh(lbl):
 
 # Image loader widget
 @magicgui(call_button='Load', imagefile={'widget_type': 'FileEdit', 'label': 'Image'},
-          zratio={'widget_type': 'FloatSlider', 'min': 1, 'max': 9})
-def load_image_tiff(vw:Viewer, imagefile=imagefile_default, zratio=6):
+          zratio={'widget_type': 'FloatSlider', 'min': 1, 'max': 9}, dualchan={'widget_type': 'CheckBox'})
+def load_image_tiff(vw:Viewer, imagefile=imagefile_default, zratio=6, dualchan=True):
 
     # Close all layers
     vw.layers.clear()
 
     # Load image, split channels and display in viewer
     img = imread(imagefile).astype(np.uint16)
-    nuclei = img[:, 0, :, :]
-    membrane = img[:, 1, :, :]
-    vw.add_image(nuclei, name=f"Nuclei", scale=(zratio, 1, 1))
+
+    if dualchan:
+        nuclei = img[:, 0, :, :]
+        membrane = img[:, 1, :, :]
+        vw.add_image(nuclei, name=f"Nuclei", scale=(zratio, 1, 1))
+    else:
+        membrane = img
     vw.add_image(membrane, name=f"Membrane", scale=(zratio, 1, 1), blending='additive', colormap='green')
+    if not dualchan:
+        vw.add_points([], name=f"Seeds_Kept", size=15, face_color='green', blending="additive", scale=(zratio, 1, 1))
 
     return None
 
-@magicgui(call_button='Remove', label={'widget_type': 'SpinBox', 'min': 1})
+@magicgui(call_button='Remove', label={'widget_type': 'SpinBox', 'min': 0})
 def remove_label(vw: Viewer, label):
 
     if viewer_is_layer(vw, 'CellsLbl'):
