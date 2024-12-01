@@ -17,7 +17,7 @@ from utils import *
           nuc_det_thr={'widget_type': 'FloatSlider', 'min': 0, 'max': 10},
           nuc_merge_maxdst={'widget_type': 'IntSlider', 'min': 1, 'max': 100},
           memb_mindelta={'widget_type': 'IntSlider', 'min': 1, 'max': 200})
-def seed_nuclei(vw: Viewer, nuc_scale_min = 2, nuc_scale_max = 6, nuc_det_thr = 1, nuc_merge_maxdst=50, memb_mindelta=5):
+def seed_nuclei(vw: Viewer, nuc_scale_min = 2, nuc_scale_max = 6, nuc_det_thr = 1, nuc_merge_maxdst=50, memb_mindelta=25):
 
     if viewer_is_layer(vw, 'Nuclei') and viewer_is_layer(vw, 'Membrane'):
 
@@ -34,13 +34,17 @@ def seed_nuclei(vw: Viewer, nuc_scale_min = 2, nuc_scale_max = 6, nuc_det_thr = 
         print('-------------------------------')
         print('Performing nucleus detection...')
         print('DoG detection')
-        blobs = dog(zoom(nuclei, (1, prescale, prescale), order=1), min_sigma=nuc_scale_min,
-                    max_sigma=nuc_scale_max, sigma_ratio=1.6, threshold=nuc_det_thr*1e-3, exclude_border=False)
-        coords = [(int(blob[0]), int(blob[1]/prescale), int(blob[2]/prescale)) for blob in blobs]
+        blobs = dog(zoom(nuclei, (zratio*prescale, prescale, prescale), order=1), min_sigma=nuc_scale_min,
+                    max_sigma=nuc_scale_max, sigma_ratio=1.6, overlap=0.5, threshold=nuc_det_thr*1e-3, exclude_border=False)
+        coords = [(int(blob[0]/(zratio*prescale)), int(blob[1]/prescale), int(blob[2]/prescale)) for blob in blobs]
         print(f"Found {len(coords)} candidate seeds")
         # Merge seeds without significant membrane signal in between
-        print('Membrane raytracing')
+        print('Membrane raytracing_iter1')
         coords_kept = remove_seeds(membrane, coords, nuc_merge_maxdst, memb_mindelta, zratio)
+        print('Membrane raytracing_iter2')
+        coords_kept = remove_seeds(membrane, coords_kept, nuc_merge_maxdst, memb_mindelta, zratio)
+        print('Membrane raytracing_iter3')
+        coords_kept = remove_seeds(membrane, coords_kept, nuc_merge_maxdst, memb_mindelta, zratio)
         print(f"Kept {len(coords_kept)} seeds ({len(coords_kept)/len(coords):0.3f})")
 
         #### Add results to layers
@@ -89,7 +93,7 @@ def segment_cells(vw: Viewer, cell_gaussrad=0.5, cell_regrad=5, cell_minvol=2e3,
         print('Imposing regional minima')
         membrane_imp = imposemin(membrane_flt, seeds>0)
         print('Watersheding')
-        cell_lbl = watershed(membrane_imp, seeds, compactness=0)
+        cell_lbl = watershed(membrane_imp, seeds, compactness=0.01)
         print('-------------------------------')
         print('Postprocessing...')
 

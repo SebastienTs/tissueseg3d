@@ -122,7 +122,7 @@ def lbl2mesh(lbl):
 # Image loader widget
 @magicgui(call_button='Load', imagefile={'widget_type': 'FileEdit', 'label': 'Image'},
           zratio={'widget_type': 'FloatSlider', 'min': 1, 'max': 9}, dualchan={'widget_type': 'CheckBox'})
-def load_image_tiff(vw:Viewer, imagefile=imagefile_default, zratio=6, dualchan=True):
+def load_image_tiff(vw:Viewer, imagefile=imagefile_default, zratio=6.92, dualchan=True):
 
     # Close all layers
     vw.layers.clear()
@@ -142,7 +142,7 @@ def load_image_tiff(vw:Viewer, imagefile=imagefile_default, zratio=6, dualchan=T
 
     return None
 
-@magicgui(call_button='Remove', label={'widget_type': 'SpinBox', 'min': 0})
+@magicgui(call_button='Remove Label', label={'widget_type': 'SpinBox', 'min': 0})
 def remove_label(vw: Viewer, label):
 
     if viewer_is_layer(vw, 'CellsLbl'):
@@ -153,7 +153,7 @@ def remove_label(vw: Viewer, label):
     return None
 
 
-@magicgui(call_button='Merge', label1={'widget_type': 'SpinBox', 'min': 1}, label2={'widget_type': 'SpinBox', 'min': 1})
+@magicgui(call_button='Merge Labels', label1={'widget_type': 'SpinBox', 'min': 1}, label2={'widget_type': 'SpinBox', 'min': 1})
 def merge_labels(vw: Viewer, label1, label2):
 
     if viewer_is_layer(vw, 'CellsLbl'):
