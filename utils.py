@@ -1,4 +1,5 @@
 import numpy as np
+import ctypes
 from napari import Viewer
 from magicgui import magicgui
 from skimage.io import imread
@@ -119,9 +120,13 @@ def lbl2mesh(lbl):
     combined_values = np.array(all_values)
     return combined_verts, combined_faces, combined_values, custom_colormap
 
+# Display message dialog box
+def dialogboxmes(message, title):
+    return ctypes.windll.user32.MessageBoxW(0, title, message, 0)
+
 # Image loader widget
 @magicgui(call_button='Load', imagefile={'widget_type': 'FileEdit', 'label': 'Image'},
-          zratio={'widget_type': 'FloatSlider', 'min': 1, 'max': 9}, dualchan={'widget_type': 'CheckBox'})
+          zratio={'widget_type': 'FloatSlider', 'min': 1, 'max': 9}, dualchan={'widget_type': 'CheckBox', 'label': 'Two channels (nucleus+membrane)'})
 def load_image_tiff(vw:Viewer, imagefile=imagefile_default, zratio=6.92, dualchan=True):
 
     # Close all layers
@@ -149,6 +154,8 @@ def remove_label(vw: Viewer, label):
         lbl = vw.layers['CellsLbl'].data
         lbl[lbl==label] = 0
         vw.layers['CellsLbl'].data = lbl
+    else:
+        dialogboxmes('Error', 'No CellsLbl layer found!')
 
     return None
 
@@ -160,5 +167,7 @@ def merge_labels(vw: Viewer, label1, label2):
         lbl = vw.layers['CellsLbl'].data
         lbl[lbl==label2] = label1
         vw.layers['CellsLbl'].data = lbl
+    else:
+        dialogboxmes('Error', 'No CellsLbl layer found!')
 
     return None

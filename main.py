@@ -11,13 +11,12 @@ from skimage.measure import regionprops_table
 from scipy.ndimage import zoom, minimum_filter, median_filter
 from utils import *
 
-@magicgui(call_button='Seed',
-          nuc_scale_min={'widget_type': 'FloatSlider', 'min': 1, 'max': 5},
-          nuc_scale_max={'widget_type': 'FloatSlider', 'min': 1, 'max': 9},
-          nuc_det_thr={'widget_type': 'FloatSlider', 'min': 0, 'max': 10},
-          nuc_merge_maxdst={'widget_type': 'IntSlider', 'min': 1, 'max': 100},
-          memb_mindelta={'widget_type': 'IntSlider', 'min': 1, 'max': 200})
-def seed_nuclei(vw: Viewer, nuc_scale_min = 2, nuc_scale_max = 6, nuc_det_thr = 1, nuc_merge_maxdst=50, memb_mindelta=25):
+@magicgui(call_button='Seed Nuclei',
+          nuc_scale_minmax = {'widget_type': 'RangeSlider', 'min': 1, 'max': 16, 'step': 1, 'readout': False, 'label': 'scale range'},
+          nuc_det_thr={'widget_type': 'FloatSlider', 'min': 0, 'max': 2},
+          nuc_merge_maxdst={'widget_type': 'IntSlider', 'min': 1, 'max': 250},
+          memb_mindelta={'widget_type': 'IntSlider', 'min': 1, 'max': 100})
+def seed_nuclei(vw: Viewer, nuc_scale_minmax = (4, 12), nuc_det_thr = 1, nuc_merge_maxdst=100, memb_mindelta=25):
 
     if viewer_is_layer(vw, 'Nuclei') and viewer_is_layer(vw, 'Membrane'):
 
@@ -34,17 +33,17 @@ def seed_nuclei(vw: Viewer, nuc_scale_min = 2, nuc_scale_max = 6, nuc_det_thr = 
         print('-------------------------------')
         print('Performing nucleus detection...')
         print('DoG detection')
-        blobs = dog(zoom(nuclei, (zratio*prescale, prescale, prescale), order=1), min_sigma=nuc_scale_min,
-                    max_sigma=nuc_scale_max, sigma_ratio=1.6, overlap=0.5, threshold=nuc_det_thr*1e-3, exclude_border=False)
+        blobs = dog(zoom(nuclei, (zratio*prescale, prescale, prescale), order=1), min_sigma=nuc_scale_minmax[0]*prescale,
+                    max_sigma=nuc_scale_minmax[1]*prescale, sigma_ratio=1.6, overlap=0.5, threshold=nuc_det_thr*1e-3, exclude_border=False)
         coords = [(int(blob[0]/(zratio*prescale)), int(blob[1]/prescale), int(blob[2]/prescale)) for blob in blobs]
         print(f"Found {len(coords)} candidate seeds")
         # Merge seeds without significant membrane signal in between
         print('Membrane raytracing_iter1')
-        coords_kept = remove_seeds(membrane, coords, nuc_merge_maxdst, memb_mindelta, zratio)
+        coords_kept = remove_seeds(membrane, coords, nuc_merge_maxdst*prescale, memb_mindelta, zratio)
         print('Membrane raytracing_iter2')
-        coords_kept = remove_seeds(membrane, coords_kept, nuc_merge_maxdst, memb_mindelta, zratio)
+        coords_kept = remove_seeds(membrane, coords_kept, nuc_merge_maxdst*prescale, memb_mindelta, zratio)
         print('Membrane raytracing_iter3')
-        coords_kept = remove_seeds(membrane, coords_kept, nuc_merge_maxdst, memb_mindelta, zratio)
+        coords_kept = remove_seeds(membrane, coords_kept, nuc_merge_maxdst*prescale, memb_mindelta, zratio)
         print(f"Kept {len(coords_kept)} seeds ({len(coords_kept)/len(coords):0.3f})")
 
         #### Add results to layers
@@ -57,8 +56,11 @@ def seed_nuclei(vw: Viewer, nuc_scale_min = 2, nuc_scale_max = 6, nuc_det_thr = 
         else:
             vw.add_points(coords_kept, name=f"Seeds_Kept", size=15, face_color='green', blending="additive", scale=(zratio, 1, 1))
         vw.layers['Seeds'].visible = False
-        
-@magicgui(call_button='Label',
+
+    else:
+        dialogboxmes('Error', 'No Nuclei layer found!')
+
+@magicgui(call_button='Label Cells',
           cell_gaussrad={'widget_type': 'FloatSlider', 'min': 0, 'max': 1.5},
           cell_regrad={'widget_type': 'IntSlider', 'min': 1, 'max': 9},
           cell_minvol={'widget_type': 'IntSlider', 'min': 1, 'max': 5e3},
@@ -93,7 +95,7 @@ def segment_cells(vw: Viewer, cell_gaussrad=0.5, cell_regrad=5, cell_minvol=2e3,
         print('Imposing regional minima')
         membrane_imp = imposemin(membrane_flt, seeds>0)
         print('Watersheding')
-        cell_lbl = watershed(membrane_imp, seeds, compactness=0.01)
+        cell_lbl = watershed(membrane_imp, seeds, compactness=0)
         print('-------------------------------')
         print('Postprocessing...')
 
@@ -109,7 +111,7 @@ def segment_cells(vw: Viewer, cell_gaussrad=0.5, cell_regrad=5, cell_minvol=2e3,
         cell_lbl = relabel(cell_lbl)
         print('Measuring regions')
         properties = regionprops_table(cell_lbl, properties=['label', 'centroid', 'area', 'MajorAxisLength', 'MinorAxisLength'])
-        #cell_lbl = cell_lbl * (cell_lbl == minimum_filter(cell_lbl, size=(1,3,3)))
+        cell_lbl = cell_lbl * (cell_lbl == minimum_filter(cell_lbl, size=(1,3,3)))
 
         # Compute cell meshes from label mask (slow)
         #combined_verts, combined_faces, combined_values, custom_colormap = lbl2mesh(cell_lbl)
@@ -136,6 +138,9 @@ def segment_cells(vw: Viewer, cell_gaussrad=0.5, cell_regrad=5, cell_minvol=2e3,
             vw.add_labels(cell_lbl, name=f"CellsLbl", blending="additive", scale=(zratio, 1, 1))
         #viewer.add_surface((combined_verts, combined_faces, combined_values), name='Combined Surface', colormap=custom_colormap, scale=(zratio, 1, 1))
         vw.layers.selection.active = viewer.layers['CellsLbl']
+
+    else:
+        dialogboxmes('Error', 'No Seeds_Kept layer found!')
 
 # Instantiate Napari viewer and add widgets
 viewer = napari.Viewer()
