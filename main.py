@@ -111,7 +111,6 @@ def segment_cells(vw: Viewer, cell_gaussrad=0.5, cell_regrad=5, cell_minvol=2e3,
         cell_lbl = relabel(cell_lbl)
         print('Measuring regions')
         properties = regionprops_table(cell_lbl, properties=['label', 'centroid', 'area', 'MajorAxisLength', 'MinorAxisLength'])
-        cell_lbl = cell_lbl * (cell_lbl == minimum_filter(cell_lbl, size=(1,3,3)))
 
         # Compute cell meshes from label mask (slow)
         #combined_verts, combined_faces, combined_values, custom_colormap = lbl2mesh(cell_lbl)
@@ -132,6 +131,7 @@ def segment_cells(vw: Viewer, cell_gaussrad=0.5, cell_regrad=5, cell_minvol=2e3,
 
         #### Display results to layers
         np.random.seed(0)
+        cell_lbl = cell_lbl * (cell_lbl == minimum_filter(cell_lbl, size=(1, 3, 3)))
         if viewer_is_layer(vw, "CellsLbl"):
             vw.layers["CellsLbl"].data = cell_lbl
         else:
