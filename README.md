@@ -4,7 +4,7 @@ A workflow to segment cells in a 3D stack with membrane and nuclear labels (2 ch
 Installation
 ------------
 
-1) Install latest miniconda: https://docs.anaconda.com/miniconda/miniconda-install/ (use default path)
+1) Install latest miniconda: https://docs.anaconda.com/miniconda/miniconda-install/
 2) Clone the repository or download it as a zip file and uzip it to an empty folder
 3) Copy requirements.txt to your USER_HOME (e.g. C:/Users/sebas in Windows)
 4) Launch Anaconda Prompt (miniconda3) and type:

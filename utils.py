@@ -9,7 +9,7 @@ from napari.utils.colormaps import Colormap
 from scipy.ndimage import binary_fill_holes, maximum_filter
 
 # Image file from Airy scan (0.25 XY downscaled)
-imagefile_default = 'D:/Projects/UPF/Berta_Lucas/CAAXinjH2B 12 hpf_025_crop.tif'
+imagefile_default = 'D:/Python/data/TissueSeg3D/TissueSeg3D_025_crop.tif'
 
 # Compute distance between two 3D points
 def distance(pt1, pt2, zratio):

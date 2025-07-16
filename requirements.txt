@@ -1,3 +1,4 @@
+# Tested only for Python==3.9
 napari[all]==0.5.3
 pandas==2.2.2
 scikit-image==0.20.0

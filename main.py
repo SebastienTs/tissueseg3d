@@ -1,5 +1,4 @@
 # 3D cells segmentation from membrane and nuclei channels
-
 import napari
 import pandas as pd
 from os import chmod
