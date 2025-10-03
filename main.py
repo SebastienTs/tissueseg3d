@@ -165,12 +165,15 @@ def segment_nuclei(vw: Viewer, nucleus_gaussrad=1.5, nucleus_thr=500, nucleus_re
         nuclei = vw.layers['Nuclei'].data
         cell_lbl = vw.layers['CellsLbl'].data
 
+        print('-------------------------------')
+        print('Performing nuclei segmentation...')
+        print('Filtering and thresholding')
         nuclei_thr = gaussian(nuclei.astype(float), sigma=(nucleus_gaussrad/zratio, nucleus_gaussrad, nucleus_gaussrad),
                               preserve_range=True).astype('uint16') >= nucleus_thr
-
-        nucleus_lbl = cell_lbl*nuclei_thr
         print('Smoothing nuclei')
-        nucleus_lbl = median_filter(nucleus_lbl, size=(1, nucleus_regrad, nucleus_regrad))
+        nuclei_thr = median_filter(nuclei_thr, size=(1, nucleus_regrad, nucleus_regrad))
+        print('Combining masks')
+        nucleus_lbl = cell_lbl*nuclei_thr
         print('Filling nuclei holes')
         nucleus_lbl = fill_lbl_holes(nucleus_lbl)
         print('Measuring nuclei')
