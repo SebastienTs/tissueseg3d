@@ -4,19 +4,30 @@ from napari import Viewer
 from magicgui import magicgui
 from skimage.io import imread
 from skimage.morphology import reconstruction
-from skimage.measure import label, regionprops, marching_cubes
-from napari.utils.colormaps import Colormap
+from skimage.measure import label, regionprops
 from scipy.ndimage import binary_fill_holes, maximum_filter
 
-# Image file from Airy scan (0.25 XY downscaled)
+# Default image file
 imagefile_default = 'D:/Projects/UPF/Berta_Lucas/CAAXinjH2B 12 hpf_025_crop.tif'
 
-# Compute distance between two 3D points
-def distance(pt1, pt2, zratio):
+# Create seed mask from seeds coordinates
+# !! first label is used for background and seeded from the image borders !!
+def seedcoords2mask(coords, shape):
+    seeds = np.zeros(shape, dtype=np.uint16)
+    seeds[:, 0, :] = 1
+    seeds[:, :, 0] = 1
+    seeds[:, -1, :] = 1
+    seeds[:, :, -1] = 1
+    for i, coord in enumerate(coords):
+        seeds[coord] = i+2
+    return seeds
+
+# Returns distance between two 3D points
+def distance_pt2pt(pt1, pt2, zratio):
     dst = np.sqrt(((np.array(pt1)*np.array((zratio,1,1))-np.array(pt2)*np.array((zratio,1,1)))**2).sum())
     return dst
 
-# Compute coordinates along a segment between two 3D points
+# Return coordinates of points making up a line segment between two 3D points
 def interpolate_3d_line(start, end):
     start = np.array(start)
     end = np.array(end)
@@ -26,31 +37,38 @@ def interpolate_3d_line(start, end):
     points = start[np.newaxis, :] + t[:, np.newaxis] * vector[np.newaxis, :]
     return np.round(points).astype(int)
 
-# Remove closeby seeds if the intensity along a segment between them does not reach a minimum level
+# Remove seed pairs within distance dstthr which intensity line profile range is below deltamin
 def remove_seeds(img, seeds, dstthr, deltamin, zratio):
     mergelst = [[] for _ in range(len(seeds))]
     for i, seed1 in enumerate(seeds):
         for j, seed2 in enumerate(seeds[i+1:], start=i+1):
-                if  distance(seed1, seed2, zratio) < dstthr:
+                if  distance_pt2pt(seed1, seed2, zratio) < dstthr:
                     profile = np.array([img[tuple(point)] for point in interpolate_3d_line(seed1, seed2)])
                     delta = profile.max() - profile.min()
                     if delta < deltamin:
                         mergelst[i].append(j)
 
-    # Seeds to be kept (all but the ones that are part of a cluster)
+    # Index of the seeds to keep (all but the ones that are part of a cluster)
     idx = set(range(1, len(seeds))) - set(sum(mergelst, []))
 
-    # Recenter seeds at clusters' centers of mass
+    # Move seeds at their associated clusters' centers of mass
     seeds = [tuple(np.round(np.mean(np.array(seeds)[[i]+lst], axis=0)).astype(int)) for i, lst in enumerate(mergelst)]
 
     return [seeds[i] for i in idx]
 
-# Impose regional intensity minima at given locations
-def imposemin(img, minima):
+# Impose regional intensity minima at nonnull mask locations
+def imposemin(img, mask):
     marker = np.full(img.shape, np.inf)
-    marker[minima == 1] = 0
+    marker[mask == 1] = 0
     mask = np.minimum((img + 1), marker)
     return reconstruction(marker, mask, method='erosion')
+
+# Impose regional intensity maxima at nonnull mask locations
+def imposemax(img, mask):
+    marker = np.full(img.shape, -np.inf)
+    marker[mask == 1] = 0
+    mask = np.maximum((img + 1), marker)
+    return reconstruction(marker, mask, method='dilation')
 
 # Remove objects outside volume range
 def remove_lbl_size(lbl, minvol, maxvol):
@@ -70,7 +88,7 @@ def remove_lbl_edge(lbl):
             lbl[x, y, z] = 0
     return lbl
 
-# Fill holes in label mask
+# Fill label mask holes
 def fill_lbl_holes(lbl):
     lbl_holes = label(binary_fill_holes(lbl>0) ^ (lbl>0))
     regions = regionprops(lbl_holes, intensity_image=maximum_filter(lbl, size=(1,3,3)))
@@ -80,7 +98,7 @@ def fill_lbl_holes(lbl):
         lbl[x, y, z] = reglbl
     return lbl
 
-# Relabel label mask with consecutive integers
+# Relabel label mask with integers from 1 to N (no gap)
 def relabel(lbl):
     unique_labels, inverse = np.unique(lbl, return_inverse=True)
     new_labels = np.arange(len(unique_labels))
@@ -89,36 +107,11 @@ def relabel(lbl):
 
 # Check if viewer layer with specific name exists
 def viewer_is_layer(vw: Viewer, layername):
-
     found = False
     if len(vw.layers) > 0:
         for i, ly in enumerate(vw.layers):
             if str(ly) == layername: found = True
-
     return found
-
-# Extract meshes from label mask
-def lbl2mesh(lbl):
-    unique_labels = np.unique(lbl)
-    unique_labels = unique_labels[unique_labels != 0]
-    num_labels = len(unique_labels)
-    all_verts = []
-    all_faces = []
-    all_values = []
-    face_offset = 0
-    colors = [np.random.random(3) for _ in range(num_labels)]
-    custom_colormap = Colormap(colors=colors, name='custom_colormap', controls=np.linspace(0, 1, num_labels))
-    for i, label in enumerate(range(1, num_labels)):
-        verts, faces, _, _ = marching_cubes(lbl == label)
-        all_verts.append(verts)
-        all_faces.append(faces + face_offset)
-        color_value = i + 1
-        all_values.extend([color_value] * len(verts))
-        face_offset += len(verts)
-    combined_verts = np.vstack(all_verts)
-    combined_faces = np.vstack(all_faces)
-    combined_values = np.array(all_values)
-    return combined_verts, combined_faces, combined_values, custom_colormap
 
 # Display message dialog box
 def dialogboxmes(message, title):
@@ -154,8 +147,12 @@ def remove_label(vw: Viewer, label):
         lbl = vw.layers['CellsLbl'].data
         lbl[lbl==label] = 0
         vw.layers['CellsLbl'].data = lbl
+        if viewer_is_layer(vw, 'NucleiLbl'):
+            lbl = vw.layers['NucleiLbl'].data
+            lbl[lbl == label] = 0
+            vw.layers['NucleiLbl'].data = lbl
     else:
-        dialogboxmes('Error', 'No CellsLbl layer found!')
+        print('!! No "CellsLbl" layer found !!')
 
     return None
 
@@ -167,7 +164,11 @@ def merge_labels(vw: Viewer, label1, label2):
         lbl = vw.layers['CellsLbl'].data
         lbl[lbl==label2] = label1
         vw.layers['CellsLbl'].data = lbl
+        if viewer_is_layer(vw, 'NucleiLbl'):
+            lbl = vw.layers['nucleiLbl'].data
+            lbl[lbl == label2] = label1
+            vw.layers['NucleiLbl'].data = lbl
     else:
-        dialogboxmes('Error', 'No CellsLbl layer found!')
+        print('!! No "CellsLbl" layer found !!')
 
     return None
