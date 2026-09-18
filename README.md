@@ -1,5 +1,5 @@
-# tissueseg3d
-A workflow to segment cells in a 3D stack with membrane and nuclear labels (2 channels)
+# TissueSeg3D
+A workflow to segment cells in a 3D stack with membrane and nuclear labels (2 fluorescence channels)
 
 Installation
 ------------
@@ -11,3 +11,17 @@ Installation
 	* conda create -n tissueseg3d python=3.9
 	* conda activate tissueseg3d
 	* pip install -r requirements.txt
+
+Running
+-------
+
+1) Start Anaconda Prompt (Windows search) or regular Terminal (Mac/Linux)
+2) Activate environment: > conda activate tissueseg3d
+3) cd to the repository: > cd D:\Python\Napari-TissueSeg3D
+4) run the script: > python -m main.py
+
+
+User Guide
+----------
+
+[User Manual](https://drive.google.com/file/d/1T3oVBuXkCHBVpNVjMfHAGD4-xAkIjbwq/view?usp=drive_link)
