@@ -1,5 +1,5 @@
 # TissueSeg3D
-A workflow to segment cells in a 3D stack with membrane and nuclear labels (2 fluorescence channels)
+A Napari based tool to segment cells and nuclei in a 3D stack with membrane and nuclear labels (2 fluorescence channels)
 
 Installation
 ------------
