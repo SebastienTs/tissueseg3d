@@ -5,9 +5,9 @@ Installation
 ------------
 
 1) Install latest miniconda: https://www.anaconda.com/docs/getting-started/installation
-2) Clone this repository or download it as a zip file (green button) and unzip it to an empty folder ($TissueSeg3D_local_repo$)
+2) Clone this repository or download it as a zip file (green button) and unzip it to an empty folder
 3) Launch Anaconda Prompt (miniconda3) and type:
-	* cd $TissueSeg3D_local_repo$ (replace with folder path on your machine)
+	* cd <path-to-folder>
 	* conda create -n tissueseg3d python=3.10
 	* conda activate tissueseg3d
 	* pip install -r requirements.txt
@@ -17,7 +17,7 @@ Running
 
 Start Anaconda Prompt (Windows search) or regular Terminal (Mac/Linux) and type:
 	* conda activate tissueseg3d
-	* cd $TissueSeg3D_local_repo$ (replace with folder path on your machine)
+	* cd <path-to-folder>
 	* python -m main.py
 
 User Guide
