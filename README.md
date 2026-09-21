@@ -1,7 +1,7 @@
 # TissueSeg3D
 A Napari based tool to segment cells and nuclei in a 3D stack with membrane and nuclear labels (2 fluo channels)
 
-<img src="Orthoview.png" alt="App Preview" width="600" />
+<img src="Orthoview.png" alt="App Preview" width="400" />
 
 Installation
 ------------
