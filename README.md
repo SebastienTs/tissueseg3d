@@ -18,7 +18,7 @@ pip install -r requirements.txt
 Running
 -------
 
-Start Anaconda Prompt (Windows) or Terminal (Mac/Linux) and run these commands:
+Launch Anaconda Prompt (Windows) or Terminal (Mac/Linux) and run these commands:
 
 ```bash
 conda activate tissueseg3d
