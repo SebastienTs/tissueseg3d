@@ -6,7 +6,7 @@ Installation
 
 1) Install latest miniconda: https://www.anaconda.com/docs/getting-started/installation
 2) Clone this repository or download it as a ZIP file (green button) and unzip to an empty folder
-3) Launch Anaconda Prompt (miniconda3) and run these commands:
+3) Launch Anaconda Prompt (Windows) or Terminal (Mac/Linux) and run these commands:
 
 ```bash
 cd PATH_TO_FOLDER
@@ -18,7 +18,7 @@ pip install -r requirements.txt
 Running
 -------
 
-Start Anaconda Prompt (Windows search) or Terminal (Mac/Linux) and run these commands:
+Start Anaconda Prompt (Windows) or Terminal (Mac/Linux) and run these commands:
 
 ```bash
 conda activate tissueseg3d
