@@ -6,9 +6,10 @@ from skimage.io import imread
 from skimage.morphology import reconstruction
 from skimage.measure import label, regionprops
 from scipy.ndimage import binary_fill_holes, maximum_filter
+from napari.utils.notifications import show_warning
 
 # Default image file
-imagefile_default = 'D:/Projects/UPF/Berta_Lucas/CAAXinjH2B 12 hpf_025_crop.tif'
+imagefile_default = ''
 
 # Create seed mask from seeds coordinates
 # !! first label is used for background and seeded from the image borders !!
@@ -126,17 +127,22 @@ def load_image_tiff(vw:Viewer, imagefile=imagefile_default, zratio=6.92, dualcha
     vw.layers.clear()
 
     # Load image, split channels and display in viewer
-    img = imread(imagefile).astype(np.uint16)
+    if imagefile.is_file() and str(imagefile).endswith('.tif'):
 
-    if dualchan:
-        nuclei = img[:, 0, :, :]
-        membrane = img[:, 1, :, :]
-        vw.add_image(nuclei, name=f"Nuclei", scale=(zratio, 1, 1))
+        img = imread(imagefile).astype(np.uint16)
+
+        if dualchan:
+            nuclei = img[:, 0, :, :]
+            membrane = img[:, 1, :, :]
+            vw.add_image(nuclei, name=f"Nuclei", scale=(zratio, 1, 1))
+        else:
+            membrane = img
+        vw.add_image(membrane, name=f"Membrane", scale=(zratio, 1, 1), blending='additive', colormap='green')
+        if not dualchan:
+            vw.add_points([], name=f"Seeds_Kept", size=15, face_color='green', blending="additive", scale=(zratio, 1, 1))
     else:
-        membrane = img
-    vw.add_image(membrane, name=f"Membrane", scale=(zratio, 1, 1), blending='additive', colormap='green')
-    if not dualchan:
-        vw.add_points([], name=f"Seeds_Kept", size=15, face_color='green', blending="additive", scale=(zratio, 1, 1))
+
+        show_warning('Select a valid TIFF file!')
 
     return None
 
@@ -165,7 +171,7 @@ def merge_labels(vw: Viewer, label1, label2):
         lbl[lbl==label2] = label1
         vw.layers['CellsLbl'].data = lbl
         if viewer_is_layer(vw, 'NucleiLbl'):
-            lbl = vw.layers['nucleiLbl'].data
+            lbl = vw.layers['NucleiLbl'].data
             lbl[lbl == label2] = label1
             vw.layers['NucleiLbl'].data = lbl
     else:
