@@ -9,7 +9,7 @@ Installation
 3) Launch Anaconda Prompt (Windows) or Terminal (Mac/Linux) and run these commands:
 
 ```bash
-cd PATH_TO_REPO_FOLDER
+cd PATH_TO_REPO_FOLDER (update with local path to the repository folder)
 conda create -n tissueseg3d python=3.10
 conda activate tissueseg3d
 pip install -r requirements.txt
@@ -21,8 +21,8 @@ Running
 Launch Anaconda Prompt (Windows) or Terminal (Mac/Linux) and run these commands:
 
 ```bash
+cd PATH_TO_REPO_FOLDER (update with local path to the repository folder)
 conda activate tissueseg3d
-cd PATH_TO_REPO_FOLDER
 python -m main.py
 ```
 
