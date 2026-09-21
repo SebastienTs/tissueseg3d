@@ -26,8 +26,8 @@ conda activate tissueseg3d
 python -m main.py
 ```
 
-User Guide
-----------
+User Manual
+-----------
 
 [User Manual](https://drive.google.com/file/d/1T3oVBuXkCHBVpNVjMfHAGD4-xAkIjbwq/view?usp=drive_link)
 
