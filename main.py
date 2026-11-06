@@ -182,7 +182,7 @@ def segment_nuclei(vw: Viewer, nucleus_gaussrad=1.5, nucleus_thr=500, nucleus_re
         #### Export results
         print('-------------------------------')
         print('Exporting results...')
-        imsave(str(imagefile).replace('.tif', '_nuc_lbl.tif'), np.uint16(cell_lbl), check_contrast=False)
+        imsave(str(imagefile).replace('.tif', '_nuc_lbl.tif'), np.uint16(nucleus_lbl), check_contrast=False)
         chmod(str(imagefile).replace('.tif', '_nuc_lbl.tif'), 0o666)
         print(str(imagefile).replace('.tif', '_nuc_lbl.tif'))
         df = pd.DataFrame(properties)
