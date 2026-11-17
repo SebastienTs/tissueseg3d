@@ -7,6 +7,9 @@ from skimage.morphology import reconstruction
 from skimage.measure import label, regionprops
 from scipy.ndimage import binary_fill_holes, maximum_filter
 from napari.utils.notifications import show_warning
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
+from scipy.spatial import cKDTree
 
 # Default image file
 imagefile_default = ''
@@ -50,12 +53,32 @@ def remove_seeds(img, seeds, dstthr, deltamin, zratio):
                         mergelst[i].append(j)
 
     # Index of the seeds to keep (all but the ones that are part of a cluster)
-    idx = set(range(1, len(seeds))) - set(sum(mergelst, []))
+    idx = set(range(len(seeds))) - set(sum(mergelst, []))
 
     # Move seeds at their associated clusters' centers of mass
     seeds = [tuple(np.round(np.mean(np.array(seeds)[[i]+lst], axis=0)).astype(int)) for i, lst in enumerate(mergelst)]
 
     return [seeds[i] for i in idx]
+
+# Merge seeds connected by line profiles (within distance dstthr) with a range below deltamin (single linkage)
+def merge_seeds(img, seeds, dstthr, deltamin, zratio):
+    seeds = np.array(seeds)
+    if len(seeds) < 2:
+        return [tuple(s) for s in seeds]
+
+    # Seed pairs within distance dstthr with low range line profile
+    clean = []
+    for i, j in cKDTree(seeds*np.array((zratio, 1, 1))).query_pairs(dstthr):
+        profile = img[tuple(interpolate_3d_line(seeds[i], seeds[j]).T)].astype(float)
+        if profile.max() - profile.min() < deltamin:
+            clean.append((i, j))
+
+    # Groups of connected seeds, moved to their centers of mass
+    rows, cols = zip(*clean) if clean else ((), ())
+    graph = coo_matrix((np.ones(len(clean)), (rows, cols)), shape=(len(seeds), len(seeds)))
+    ncomp, comp = connected_components(graph, directed=False)
+
+    return [tuple(np.round(seeds[comp == c].mean(axis=0)).astype(int)) for c in range(ncomp)]
 
 # Impose regional intensity minima at nonnull mask locations
 def imposemin(img, mask):
