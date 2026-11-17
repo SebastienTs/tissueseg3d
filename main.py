@@ -1,4 +1,3 @@
-import os
 import napari
 import pandas as pd
 from os import chmod
@@ -8,7 +7,6 @@ from skimage.feature import blob_dog as dog, peak_local_max
 from skimage.segmentation import watershed
 from skimage.measure import regionprops_table
 from scipy.ndimage import zoom, minimum_filter, median_filter, distance_transform_edt
-from scipy.ndimage import center_of_mass
 from utils import *
 
 @magicgui(call_button='Seed Nuclei',
@@ -16,57 +14,50 @@ from utils import *
           nuc_det_thr={'widget_type': 'FloatSlider', 'min': 0, 'max': 2},
           nuc_merge_maxdst={'widget_type': 'IntSlider', 'min': 1, 'max': 250},
           memb_mindelta={'widget_type': 'IntSlider', 'min': 1, 'max': 100},
-          load_labels={'widget_type': 'CheckBox', 'label': 'load labels (use centroids as seeds)'})
-def seed_nuclei(vw: Viewer, nuc_scale_minmax = (4, 12), nuc_det_thr = 1, nuc_merge_maxdst=100, memb_mindelta=25, load_labels=False):
+          iterative={'widget_type': 'CheckBox', 'label': 'Iterative',
+                     'tooltip': 'Iterative (original mode): 3 passes merging seed pairs with a clean membrane profile\n'
+                                'Unticked: single pass merging all seeds connected by clean profiles (single linkage)'})
+def seed_nuclei(vw: Viewer, nuc_scale_minmax = (4, 12), nuc_det_thr = 1, nuc_merge_maxdst=100, memb_mindelta=25, iterative=False):
 
     if viewer_is_layer(vw, 'Nuclei') and viewer_is_layer(vw, 'Membrane'):
 
         zratio = load_image_tiff.zratio.value
 
-        if load_labels:
+        #### XY downscaling factor for nuclei detection
+        prescale = 0.5
 
-            image_file = str(load_image_tiff.imagefile.value)[:-4]+'_nuc_lbl.tif'
+        #### Fetch data from Napari objects
+        nuclei = vw.layers['Nuclei'].data
+        membrane = vw.layers['Membrane'].data
 
-            if os.path.isfile(image_file):
-                nuclei_lbl = imread(image_file).astype(np.uint16)
-                labels = np.unique(nuclei_lbl)
-                coords_kept = center_of_mass(np.ones_like(nuclei_lbl), labels=nuclei_lbl, index=labels[labels != 0])
-            else:
-                print('!! Error: No "Nuclei" layer not found !!')
-
-        else:
-
-            #### XY downscaling factor for nuclei detection
-            prescale = 0.5
-
-            #### Fetch data from Napari objects
-            nuclei = vw.layers['Nuclei'].data
-            membrane = vw.layers['Membrane'].data
-
-            #### Detect seeds (nucleus channel)
-            # Multiscale DoG
-            print('-------------------------------')
-            print('Performing nucleus detection...')
-            print('DoG detection')
-            blobs = dog(zoom(nuclei, (zratio*prescale, prescale, prescale), order=1), min_sigma=nuc_scale_minmax[0]*prescale,
-                        max_sigma=nuc_scale_minmax[1]*prescale, sigma_ratio=1.6, overlap=0.5, threshold=nuc_det_thr*1e-3, exclude_border=False)
-            coords = [(int(blob[0]/(zratio*prescale)), int(blob[1]/prescale), int(blob[2]/prescale)) for blob in blobs]
-            print(f"Found {len(coords)} candidate seeds")
-            # Merge seeds without significant membrane signal in between
+        #### Detect seeds (nucleus channel)
+        # Multiscale DoG
+        print('-------------------------------')
+        print('Performing nucleus detection...')
+        print('DoG detection')
+        blobs = dog(zoom(nuclei, (zratio*prescale, prescale, prescale), order=1), min_sigma=nuc_scale_minmax[0]*prescale,
+                    max_sigma=nuc_scale_minmax[1]*prescale, sigma_ratio=1.6, overlap=0.5, threshold=nuc_det_thr*1e-3, exclude_border=False)
+        coords = [(int(blob[0]/(zratio*prescale)), int(blob[1]/prescale), int(blob[2]/prescale)) for blob in blobs]
+        print(f"Found {len(coords)} candidate seeds")
+        # Merge seeds without significant membrane signal in between
+        if iterative:
             print('Membrane raytracing_iter1')
             coords_kept = remove_seeds(membrane, coords, nuc_merge_maxdst*prescale, memb_mindelta, zratio)
             print('Membrane raytracing_iter2')
             coords_kept = remove_seeds(membrane, coords_kept, nuc_merge_maxdst*prescale, memb_mindelta, zratio)
             print('Membrane raytracing_iter3')
             coords_kept = remove_seeds(membrane, coords_kept, nuc_merge_maxdst*prescale, memb_mindelta, zratio)
-            print(f"Kept {len(coords_kept)} seeds ({len(coords_kept)/len(coords):0.3f})")
+        else:
+            print('Membrane raytracing_single_linkage')
+            coords_kept = merge_seeds(membrane, coords, nuc_merge_maxdst*prescale, memb_mindelta, zratio)
+        print(f"Kept {len(coords_kept)} seeds ({len(coords_kept)/len(coords):0.3f})")
 
-            #### Add raw seeds to napari layers
-            if viewer_is_layer(vw, "Seeds"):
-                vw.layers["Seeds"].data = coords
-            else:
-                vw.add_points(coords, name=f"Seeds", size=15, face_color='black', blending="additive", scale=(zratio, 1, 1))
-            vw.layers['Seeds'].visible=False
+        #### Add raw seeds to napari layers
+        if viewer_is_layer(vw, "Seeds"):
+            vw.layers["Seeds"].data = coords
+        else:
+            vw.add_points(coords, name=f"Seeds", size=15, face_color='black', blending="additive", scale=(zratio, 1, 1))
+        vw.layers['Seeds'].visible=False
 
         #### Add kept seeds to napari layers
         if viewer_is_layer(vw, "Seeds_Kept"):
