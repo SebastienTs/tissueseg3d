@@ -132,7 +132,7 @@ def segment_cells(vw: Viewer, cell_gaussrad=0.5, cell_regrad=5, cell_minvol=2e3,
         if viewer_is_layer(vw, "CellsLbl"):
             vw.layers["CellsLbl"].data = cell_lbl
         else:
-            vw.add_labels(cell_lbl, name=f"CellsLbl", blending="additive", scale=(zratio, 1, 1))
+            vw.add_labels(cell_lbl, name=f"CellsLbl", blending="additive", rendering='translucent', scale=(zratio, 1, 1))
         # Compute cell meshes from label mask (slow)
         #combined_verts, combined_faces, combined_values, custom_colormap = lbl2mesh(cell_lbl)
         #viewer.add_surface((combined_verts, combined_faces, combined_values), name='Combined Surface', colormap=custom_colormap, scale=(zratio, 1, 1))
@@ -189,7 +189,7 @@ def segment_nuclei(vw: Viewer, nucleus_gaussrad=1.5, nucleus_thr=500, nucleus_re
         if viewer_is_layer(vw, "NucleiLbl"):
             vw.layers["NucleiLbl"].data = nucleus_lbl
         else:
-            vw.add_labels(nucleus_lbl, name="NucleiLbl", blending="additive", scale=(zratio, 1, 1))
+            vw.add_labels(nucleus_lbl, name="NucleiLbl", blending="additive", rendering='translucent', scale=(zratio, 1, 1))
         vw.layers.selection.active=viewer.layers['NucleiLbl']
 
     else:
