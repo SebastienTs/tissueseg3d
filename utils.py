@@ -169,17 +169,67 @@ def load_image_tiff(vw:Viewer, imagefile=imagefile_default, zratio=6.92, dualcha
 
     return None
 
+# Label layers edited by the remove / merge tools (cell labels first)
+edit_layers = ('CellsLbl', 'NucleiLbl')
+
+# Undo history: one entry per action, holding for each edited layer the flat indices of changed voxels and their old label
+edit_history = []
+
+# Replace label src by dst in cell (and nuclei) label masks, recording the change for undo
+def replace_label_masks(vw: Viewer, src, dst):
+    entry = []
+    for name in edit_layers:
+        if viewer_is_layer(vw, name):
+            lbl = vw.layers[name].data
+            idx = np.flatnonzero(lbl == src)
+            if idx.size:
+                lbl.ravel()[idx] = dst
+                vw.layers[name].data = lbl
+                entry.append((name, idx, src))
+    if entry:
+        edit_history.append(entry)
+
+# Remove a label from cell (and nuclei) label masks
+def delete_label_masks(vw: Viewer, label):
+    replace_label_masks(vw, label, 0)
+
+# Merge label2 into label1 in cell (and nuclei) label masks
+def merge_label_masks(vw: Viewer, label1, label2):
+    replace_label_masks(vw, label2, label1)
+
+# Undo last remove / merge action
+def undo_label_edit(vw: Viewer):
+    if not edit_history:
+        show_warning('Nothing to undo')
+        return
+    for name, idx, old in edit_history.pop():
+        if viewer_is_layer(vw, name):
+            lbl = vw.layers[name].data
+            lbl.ravel()[idx] = old
+            vw.layers[name].data = lbl
+    print('Undid last label edit')
+
+# Crosshair mouse cursor of a given color (thin white outline to stay visible on dark backgrounds)
+def color_crosshair_cursor(rgb, size=33):
+    from qtpy.QtCore import Qt
+    from qtpy.QtGui import QCursor, QPixmap, QPainter, QPen, QColor
+    pm = QPixmap(size, size)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    c, gap = size // 2, 3
+    segs = [(c, 0, c, c-gap), (c, c+gap, c, size-1), (0, c, c-gap, c), (c+gap, c, size-1, c)]
+    for pen in (QPen(QColor(255, 255, 255), 4), QPen(QColor(*[int(round(255*v)) for v in rgb[:3]]), 2)):
+        p.setPen(pen)
+        for seg in segs:
+            p.drawLine(*seg)
+    p.end()
+    return QCursor(pm, c, c)
+
 @magicgui(call_button='Remove Label', label={'widget_type': 'SpinBox', 'min': 0})
 def remove_label(vw: Viewer, label):
 
     if viewer_is_layer(vw, 'CellsLbl'):
-        lbl = vw.layers['CellsLbl'].data
-        lbl[lbl==label] = 0
-        vw.layers['CellsLbl'].data = lbl
-        if viewer_is_layer(vw, 'NucleiLbl'):
-            lbl = vw.layers['NucleiLbl'].data
-            lbl[lbl == label] = 0
-            vw.layers['NucleiLbl'].data = lbl
+        delete_label_masks(vw, label)
     else:
         print('!! No "CellsLbl" layer found !!')
 
@@ -190,14 +240,142 @@ def remove_label(vw: Viewer, label):
 def merge_labels(vw: Viewer, label1, label2):
 
     if viewer_is_layer(vw, 'CellsLbl'):
-        lbl = vw.layers['CellsLbl'].data
-        lbl[lbl==label2] = label1
-        vw.layers['CellsLbl'].data = lbl
-        if viewer_is_layer(vw, 'NucleiLbl'):
-            lbl = vw.layers['NucleiLbl'].data
-            lbl[lbl == label2] = label1
-            vw.layers['NucleiLbl'].data = lbl
+        merge_label_masks(vw, label1, label2)
     else:
         print('!! No "CellsLbl" layer found !!')
 
     return None
+
+
+# Interactive label editing tool: 'm' = merge (two clicks), 'd' = delete (one click), 'u' = undo, right click / Esc = exit
+class LabelEditTool:
+
+    def __init__(self, vw: Viewer):
+        self.vw = vw
+        self.mode = None
+        self.picked = []
+        vw.mouse_drag_callbacks.append(self._on_click)
+        # napari resets the canvas cursor on these events: re-apply the tool cursor afterwards
+        vw.cursor.events.style.connect(self._apply_cursor, position='last')
+        vw.cursor.events.size.connect(self._apply_cursor, position='last')
+        vw.camera.events.zoom.connect(self._apply_cursor, position='last')
+        # Bind on the viewer and on every layer: active layer keymaps (e.g. Labels 'm') take precedence
+        self._bind(vw)
+        for ly in vw.layers:
+            self._bind(ly)
+        vw.layers.events.inserted.connect(lambda e: self._bind(e.value))
+
+    def _bind(self, provider):
+        provider.bind_key('m', lambda *_: self.start('merge'), overwrite=True)
+        provider.bind_key('d', lambda *_: self.start('delete'), overwrite=True)
+        provider.bind_key('u', lambda *_: self.undo(), overwrite=True)
+        # Leave the tool if the user switches a layer to another mode (paint, fill...)
+        if hasattr(provider, 'events') and hasattr(provider.events, 'mode'):
+            provider.events.mode.connect(self._on_layer_mode)
+
+    def _on_layer_mode(self, event):
+        if self.mode is not None and str(event.source.mode) != 'pan_zoom':
+            self.stop()
+
+    def undo(self):
+        undo_label_edit(self.vw)
+        if self.mode == 'merge':
+            self.picked = []
+        if self.mode is not None:
+            self._update_overlay()
+
+    # Tool cursor: delete = red, merge = black or color of first picked label
+    def _apply_cursor(self, event=None):
+        if self.mode is None:
+            return
+        if self.mode == 'delete':
+            rgb = (1, 0, 0)
+        elif self.picked:
+            rgb = self.vw.layers['CellsLbl'].get_color(self.picked[0])
+        else:
+            rgb = (0, 0, 0)
+        self.vw.window._qt_viewer.canvas.cursor = color_crosshair_cursor(rgb)
+
+    def start(self, mode):
+        if not viewer_is_layer(self.vw, 'CellsLbl'):
+            show_warning('No "CellsLbl" layer found!')
+            return
+        self.mode = mode
+        self.picked = []
+        # Make sure the label layers are in move (pan/zoom) mode so clicks do not paint
+        for name in edit_layers:
+            if viewer_is_layer(self.vw, name):
+                self.vw.layers[name].mode = 'pan_zoom'
+        # Esc exits the tool; only bound while active so napari's own Esc (e.g. reset polygon) still works otherwise
+        for provider in [self.vw, *self.vw.layers]:
+            provider.bind_key('Escape', lambda *_: self.stop(), overwrite=True)
+        self._update_overlay()
+
+    def stop(self):
+        if self.mode is None:
+            return
+        for provider in [self.vw, *self.vw.layers]:
+            try:
+                provider.bind_key('Escape', None)
+            except (KeyError, ValueError):
+                pass
+        self.mode = None
+        self.picked = []
+        self.vw.text_overlay.visible = False
+        self.vw.cursor.events.style()  # let napari restore its own cursor
+
+    def _update_overlay(self):
+        if self.mode == 'merge':
+            step = 'first' if not self.picked else f'second (merge into {self.picked[0]})'
+            txt = f'MERGE: click {step} label - right click to exit'
+        else:
+            txt = 'DELETE: click label to remove - right click to exit'
+        self.vw.text_overlay.text = txt
+        self.vw.text_overlay.visible = True
+        self._apply_cursor()
+
+    # Label under the mouse pointer (2D or 3D ray picking), cell mask first then nuclei mask
+    def _pick_label(self, event):
+        for name in edit_layers:
+            if viewer_is_layer(self.vw, name):
+                val = self.vw.layers[name].get_value(event.position, view_direction=event.view_direction,
+                                                     dims_displayed=event.dims_displayed, world=True)
+                if val is not None and int(val) > 0:
+                    return int(val)
+        return 0
+
+    def _on_click(self, vw, event):
+        if self.mode is None:
+            return
+        if event.button == 2:
+            self.stop()
+            return
+        if event.button != 1:
+            return
+        # Ignore drags (camera rotation / panning)
+        dragged = False
+        yield
+        while event.type == 'mouse_move':
+            dragged = True
+            yield
+        if dragged:
+            return
+        label = self._pick_label(event)
+        if label == 0:
+            show_warning('No label under pointer')
+            return
+        if self.mode == 'delete':
+            delete_label_masks(self.vw, label)
+            print(f'Removed label {label}')
+        else:
+            if label in self.picked:
+                # Clicking the same cell again cancels the pending merge
+                self.picked = []
+                self._update_overlay()
+                return
+            self.picked.append(label)
+            if len(self.picked) == 2:
+                merge_label_masks(self.vw, self.picked[0], self.picked[1])
+                print(f'Merged label {self.picked[1]} into {self.picked[0]}')
+                self.picked = []
+        self._update_overlay()
